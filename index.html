@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor Táctico de Zonificación y Seguridad - Talara</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Filter tab active */
+        .filter-tab.active {
+            background: rgba(59,130,246,0.2);
+            border-color: rgba(59,130,246,0.6);
+            color: #93c5fd;
+        }
+
+        /* Sector zone badge */
+        .badge-CENTRO  { background: rgba(234,179,8,0.15);  color: #fbbf24; border: 1px solid rgba(234,179,8,0.35); }
+        .badge-ENACE   { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.35); }
+        .badge-NORTE   { background: rgba(34,197,94,0.15);  color: #86efac; border: 1px solid rgba(34,197,94,0.35); }
+        .badge-SUR     { background: rgba(239,68,68,0.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+
+        /* Dot indicator per zone */
+        .dot-CENTRO { background:#fbbf24; }
+        .dot-ENACE  { background:#c4b5fd; }
+        .dot-NORTE  { background:#86efac; }
+        .dot-SUR    { background:#fca5a5; }
+
+        /* Clear button transition */
+        #clearSearch { transition: opacity 0.15s; }
+
+        /* Contact modal animation */
+        #contactModal { transition: opacity 0.2s; }
+        #contactModal.hidden { opacity: 0; pointer-events: none; }
+        #contactModalBox { transition: transform 0.2s, opacity 0.2s; }
+        #contactModal.hidden #contactModalBox { transform: scale(0.95); opacity: 0; }
+
+        /* Group header */
+        .group-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-full flex flex-col font-sans">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-3 flex flex-col md:flex-row justify-between items-center shadow-md gap-3">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 text-white p-2.5 rounded-lg shadow">
+                <i class="fa-solid fa-shield-halved text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold tracking-wide">VISOR TÁCTICO DE SEGURIDAD CIUDADANA</h1>
+                <p class="text-xs text-slate-400">Jurisdicción de Talara — Septiembre 2026 | Búsqueda Rápida de Despliegue</p>
+            </div>
+        </div>
+
+        <!-- Search bar with clear button + Help button -->
+        <div class="flex items-center gap-2 w-full md:w-auto">
+            <div class="relative flex-1 md:w-80">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </span>
+                <input type="text" id="searchInput"
+                    placeholder="Buscar sector, parque, colegio, grifo..."
+                    class="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+                <button id="clearSearch"
+                    onclick="clearSearch()"
+                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-white opacity-0 pointer-events-none">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <!-- Help / Contact button -->
+            <button id="helpBtn" onclick="openContact()"
+                title="Contacto del creador (F1)"
+                class="flex-shrink-0 w-9 h-9 rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white flex items-center justify-center transition text-sm font-bold">
+                ?
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+        <!-- Sidebar / List of Sectors -->
+        <aside class="w-full md:w-96 bg-slate-800/80 border-r border-slate-700 flex flex-col overflow-hidden">
+
+            <!-- Filter tabs -->
+            <div class="p-3 border-b border-slate-700">
+                <div class="flex flex-wrap gap-1.5">
+                    <button id="tab-ALL" class="filter-tab active text-xs px-3 py-1 rounded border border-slate-600 text-slate-300 transition"
+                        onclick="setFilter('ALL')">
+                        <i class="fa-solid fa-layer-group mr-1"></i>Todos
+                        <span class="ml-1 text-[10px] opacity-70" id="count-ALL"></span>
+                    </button>
+                    <button id="tab-CENTRO" class="filter-tab text-xs px-3 py-1 rounded border border-slate-600 text-slate-300 transition"
+                        onclick="setFilter('CENTRO')">
+                        <span class="inline-block w-2 h-2 rounded-full dot-CENTRO mr-1"></span>Centro
+                        <span class="ml-1 text-[10px] opacity-70" id="count-CENTRO"></span>
+                    </button>
+                    <button id="tab-ENACE" class="filter-tab text-xs px-3 py-1 rounded border border-slate-600 text-slate-300 transition"
+                        onclick="setFilter('ENACE')">
+                        <span class="inline-block w-2 h-2 rounded-full dot-ENACE mr-1"></span>Enace
+                        <span class="ml-1 text-[10px] opacity-70" id="count-ENACE"></span>
+                    </button>
+                    <button id="tab-NORTE" class="filter-tab text-xs px-3 py-1 rounded border border-slate-600 text-slate-300 transition"
+                        onclick="setFilter('NORTE')">
+                        <span class="inline-block w-2 h-2 rounded-full dot-NORTE mr-1"></span>Norte
+                        <span class="ml-1 text-[10px] opacity-70" id="count-NORTE"></span>
+                    </button>
+                    <button id="tab-SUR" class="filter-tab text-xs px-3 py-1 rounded border border-slate-600 text-slate-300 transition"
+                        onclick="setFilter('SUR')">
+                        <span class="inline-block w-2 h-2 rounded-full dot-SUR mr-1"></span>Sur
+                        <span class="ml-1 text-[10px] opacity-70" id="count-SUR"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Count bar -->
+            <div class="px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Sectores Priorizados (<span id="countSectors">16</span>)
+                </span>
+                <span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded border border-blue-700/50">Operativo</span>
+            </div>
+
+            <!-- Sector list -->
+            <div id="sectorsList" class="flex-1 overflow-y-auto p-2 space-y-1">
+                <!-- Items populated dynamically -->
+            </div>
+        </aside>
+
+        <!-- Viewer / Detail Area -->
+        <section class="flex-1 bg-slate-950 flex flex-col overflow-hidden relative">
+            <div id="welcomeState" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                <i class="fa-solid fa-map-location-dot text-5xl mb-4 text-slate-600"></i>
+                <h2 class="text-xl font-semibold text-slate-300">Seleccione un sector para iniciar el despliegue táctico</h2>
+                <p class="text-sm max-w-md mt-2 text-slate-500">Utilice los filtros de zona o el buscador rápido, luego haga clic en cualquier sector para visualizar el mapa detallado.</p>
+
+                <!-- Mini legend on welcome screen -->
+                <div class="flex flex-wrap gap-2 mt-6 justify-center">
+                    <span class="badge-CENTRO text-xs px-3 py-1 rounded-full">● Centro</span>
+                    <span class="badge-ENACE  text-xs px-3 py-1 rounded-full">● Enace</span>
+                    <span class="badge-NORTE  text-xs px-3 py-1 rounded-full">● Norte</span>
+                    <span class="badge-SUR    text-xs px-3 py-1 rounded-full">● Sur</span>
+                </div>
+            </div>
+
+            <div id="detailView" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+                <!-- Detail Header -->
+                <div class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center">
+                    <div>
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <span id="sectorZoneBadge" class="text-[10px] px-2 py-0.5 rounded-full font-semibold"></span>
+                            <h2 id="sectorTitle" class="text-base font-bold text-white uppercase tracking-wider">Título del Sector</h2>
+                        </div>
+                        <p id="sectorTags" class="text-xs text-blue-400 mt-0.5">Puntos clave asociados</p>
+                    </div>
+                    <button onclick="toggleFullscreen()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded border border-slate-700 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-expand"></i>
+                        <span>Ampliar Mapa</span>
+                    </button>
+                </div>
+
+                <!-- Map Image Container -->
+                <div class="flex-1 bg-slate-950/80 p-4 flex items-center justify-center overflow-auto relative">
+                    <div class="max-w-4xl w-full h-full flex items-center justify-center bg-slate-900/40 rounded-lg border border-slate-800 p-2">
+                        <img id="sectorImage" src="" alt="Mapa de sector" class="max-h-full max-w-full object-contain rounded shadow-lg border border-slate-700">
+                    </div>
+                </div>
+
+                <!-- Tactical Notes Footer -->
+                <div class="bg-slate-900 border-t border-slate-800 px-6 py-3 flex flex-col md:flex-row justify-between items-start md:items-center text-xs text-slate-300 space-y-2 md:space-y-0">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-exclamation text-amber-400"></i>
+                        <span id="sectorNote"><strong class="text-white">Indicación Táctica:</strong> Verificar perímetro y puntos críticos de acuerdo al rol de turno.</span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <span class="bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 px-2.5 py-1 rounded">Estado: Cobertura Activa</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Contacto / Creador -->
+    <div id="contactModal" class="fixed inset-0 z-50 bg-black/70 hidden flex items-center justify-center p-4"
+         onclick="if(event.target===this) closeContact()">
+        <div id="contactModalBox" class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+            <!-- Close -->
+            <button onclick="closeContact()"
+                class="absolute top-3 right-3 text-slate-400 hover:text-white w-8 h-8 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Avatar / Icon -->
+            <div class="flex flex-col items-center text-center mb-5">
+                <div class="w-16 h-16 rounded-full bg-blue-600/20 border-2 border-blue-500/50 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-user-shield text-2xl text-blue-400"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white tracking-widest">JSANTUR</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Creador &amp; Administrador del Sistema</p>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-t border-slate-700 mb-4"></div>
+
+            <!-- Contact info -->
+            <div class="space-y-3">
+                <a href="tel:+51977201449"
+                   class="flex items-center gap-3 bg-slate-700/60 hover:bg-slate-700 rounded-xl px-4 py-3 transition group">
+                    <div class="w-9 h-9 rounded-full bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-phone text-emerald-400 text-sm"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider">Celular</p>
+                        <p class="text-sm font-semibold text-white group-hover:text-emerald-300 transition">+51 977 201 449</p>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-500 ml-auto"></i>
+                </a>
+            </div>
+
+            <!-- Footer hint -->
+            <p class="text-center text-[10px] text-slate-600 mt-4">Presiona <kbd class="bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded text-[10px]">F1</kbd> o <kbd class="bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded text-[10px]">Esc</kbd> para cerrar</p>
+        </div>
+    </div>
+
+    <!-- Modal Fullscreen Image -->
+    <div id="fullscreenModal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col items-center justify-center p-4">
+        <button onclick="closeFullscreen()" class="absolute top-4 right-4 bg-slate-800 hover:bg-slate-700 text-white w-10 h-10 rounded-full flex items-center justify-center text-lg border border-slate-700 transition">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <img id="modalImage" src="" class="max-h-[90vh] max-w-[90vw] object-contain rounded border border-slate-700 shadow-2xl">
+    </div>
+
+    <!-- Data + Logic -->
+    <script>
+        // ── Sector data ──────────────────────────────────────────────
+        const sectors = [
+            // ── SUR ──────────────────────────────────────────────────
+            {
+                id: 1, zone: "SUR",
+                name: "Alan García y A.H. César Vallejo",
+                keywords: "alan garcia cesar vallejo coliseo parque infantil sector 02",
+                image: "SUR/ALAN GARCÍA Y A.H CESAR VALLEJO SET 26.png",
+                note: "Patrullaje intensivo en Coliseo Alan García y acceso al Parque Infantil."
+            },
+            {
+                id: 2, zone: "SUR",
+                name: "Coliseo y Gruta Jorge Chávez",
+                keywords: "gruta jorge chavez colegio coliseo parque escuelita san sebastian chatarreros",
+                image: "SUR/COLISEO Y GRUTA JORGE CHÁVEZ SET 26.png",
+                note: "Vigilancia en zona de chatarreros y entorno del Colegio/Coliseo Jorge Chávez."
+            },
+            {
+                id: 3, zone: "SUR",
+                name: "Corpac",
+                keywords: "corpac ingreso aeropuerto bares pileta corpac taller de glp",
+                image: "SUR/CORPAC SETIEMBRE 26.png",
+                note: "Vigilancia en ingreso al aeropuerto, bares zonales y entorno de pileta Corpac."
+            },
+            {
+                id: 4, zone: "SUR",
+                name: "Cristo Mirador y Parque La Urba",
+                keywords: "cristo mirador parque la urba ie maria reina de la paz",
+                image: "SUR/CRISTO MIRADOR PARQUE LA URBA SET 26.png",
+                note: "Patrullaje estratégico en Cristo Mirador, Parque La Urba y Colegio María Reina de la Paz."
+            },
+            {
+                id: 5, zone: "SUR",
+                name: "Mario Aguirre y Cola de Gato",
+                keywords: "mario aguirre cola de gato taller blanco campo deportivo arena casa de la juventud grifo calle 8",
+                image: "SUR/MARIO AGUIRRE Y COLA DE GATO SET 26.png",
+                note: "Control de seguridad en Casa de la Juventud, Cola de Gato y Mario Aguirre."
+            },
+            {
+                id: 6, zone: "SUR",
+                name: "Mercado Ex Serpetro",
+                keywords: "mercado ex serpetro sapisa zona industrial emblematica 15513",
+                image: "SUR/MERCADO EX SERPETRO SETIEMBRE 26.png",
+                note: "Patrullaje comercial en Mercado Ex Serpetro y Colegio Emblemática 15513."
+            },
+            {
+                id: 7, zone: "SUR",
+                name: "Senati",
+                keywords: "senati talara alta arrebatos 23 horas salida alumnos losa deportiva veterinario",
+                image: "SUR/SENATI SETIEMBRE 2026.png",
+                note: "⚠️ ALERTA TÁCTICA: Prevención de arrebatos a las 23:00 horas (salida de alumnos)."
+            },
+            // ── ENACE ─────────────────────────────────────────────────
+            {
+                id: 8, zone: "ENACE",
+                name: "Enace 1",
+                keywords: "enace 1 parque el mundo iee salaverry",
+                image: "ENACE/ENACE 1 SETIEMBRE 26.png",
+                note: "Cobertura en Parque El Mundo y perímetro del IEE Salaverry."
+            },
+            {
+                id: 9, zone: "ENACE",
+                name: "Enace 2",
+                keywords: "enace 2 coliseo edificios",
+                image: "ENACE/ENACE 2 SETIEMBRE 26.png",
+                note: "Patrullaje en zona residencial de edificios y coliseo Enace 2."
+            },
+            {
+                id: 10, zone: "ENACE",
+                name: "Luis Negreiros",
+                keywords: "urb luis negreiros instituto luciano castillo",
+                image: "ENACE/LUIS NEGREIROS SETIEMBRE 26.png",
+                note: "Vigilancia en urbanización Luis Negreiros e Instituto Luciano Castillo Colonna."
+            },
+            {
+                id: 11, zone: "ENACE",
+                name: "Nueva Talara",
+                keywords: "nueva talara ampliacion campo deportivo la casa del pan",
+                image: "ENACE/NUEVA TALARA SETIEMBRE 26.png",
+                note: "Patrullaje a pie y vehicular en manzanas de ampliación y campo deportivo."
+            },
+            {
+                id: 12, zone: "ENACE",
+                name: "Sacobsá",
+                keywords: "sacobsá sacobsa coliseo parque panamericana",
+                image: "ENACE/SACOBSA SETIEMBRE 26.png",
+                note: "Control de acceso norte, zona de coliseo y salida a la Panamericana."
+            },
+            // ── NORTE ─────────────────────────────────────────────────
+            {
+                id: 13, zone: "NORTE",
+                name: "A.H. Peñitas y A.H. Jesús María",
+                keywords: "penitas jesus maria losa deportiva santa rita de casia parcela 25 sector 01",
+                image: "NORTE/A.H PEÑITAS Y A.H JESÚS MARÍA SET 26.png",
+                note: "Monitoreo en Losa Las Peñitas, A.H. Jesús María y sector Santa Rita de Casia."
+            },
+            {
+                id: 14, zone: "NORTE",
+                name: "Acapulco, Yale y Parque 16",
+                keywords: "acapulco ovalo bolognesi parques 6 7 8 9 domingo savio puente yale iep fatima parroquia santa rosa alameda grifo primax",
+                image: "NORTE/ACAPULCO_PQES 6789_YALE_PQUE 16 SET 26.png",
+                note: "Control en Óvalo Bolognesi, Mercado Acapulco y zonas educativas (Domingo Savio y Fátima)."
+            },
+            {
+                id: 15, zone: "NORTE",
+                name: "Plazuela Pescador y Cementerio",
+                keywords: "plazuela pescador cementerio parque barrio estibadores iee max cornejo pacora las mercedes campo deportivo san judas",
+                image: "NORTE/PLAZUELA PESCADOR Y CEMENTERIO SET 26.png",
+                note: "Control preventivo en Plazuela Pescador, Las Mercedes y zona de cementerio."
+            },
+            // ── CENTRO ────────────────────────────────────────────────
+            {
+                id: 16, zone: "CENTRO",
+                name: "Parque 62, Merino, La Parada y Grifo San Martín",
+                keywords: "parque 62 perez de cuellar mercado laparada ie ignacio merino ie la inmaculada maruja cabredo grifo san martin villa talara av e av h av f",
+                image: "CENTRO/PRQE 62_MERINO_LA PARADA_GRIFO SAN MARTÍN SET 26.png",
+                note: "Atención prioritaria en Mercado La Parada y perímetro de colegios emblemáticos."
+            }
+        ];
+
+        // ── State ────────────────────────────────────────────────────
+        let currentSector = null;
+        let activeFilter   = "ALL";
+
+        // ── Zone config ──────────────────────────────────────────────
+        const zoneConfig = {
+            CENTRO: { label: "Centro", icon: "fa-building-columns" },
+            ENACE:  { label: "Enace",  icon: "fa-city" },
+            NORTE:  { label: "Norte",  icon: "fa-compass" },
+            SUR:    { label: "Sur",    icon: "fa-map-pin" }
+        };
+
+        // ── Helpers ──────────────────────────────────────────────────
+        function setFilter(zone) {
+            activeFilter = zone;
+            document.querySelectorAll('.filter-tab').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + zone).classList.add('active');
+            renderList(document.getElementById('searchInput').value);
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            toggleClearBtn('');
+            renderList('');
+            input.focus();
+        }
+
+        function toggleClearBtn(val) {
+            const btn = document.getElementById('clearSearch');
+            if (val.length > 0) {
+                btn.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                btn.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        // ── Render list ──────────────────────────────────────────────
+        function renderList(filter = "") {
+            const container = document.getElementById('sectorsList');
+            container.innerHTML = "";
+
+            const q = filter.toLowerCase();
+
+            let filtered = sectors.filter(s =>
+                (s.name.toLowerCase().includes(q) || s.keywords.toLowerCase().includes(q))
+                && (activeFilter === "ALL" || s.zone === activeFilter)
+            );
+
+            // Update ALL tab count and per-zone counts
+            const allCount = sectors.filter(s =>
+                s.name.toLowerCase().includes(q) || s.keywords.toLowerCase().includes(q)
+            ).length;
+            document.getElementById('count-ALL').textContent = allCount;
+            ['CENTRO','ENACE','NORTE','SUR'].forEach(z => {
+                const c = sectors.filter(s =>
+                    (s.name.toLowerCase().includes(q) || s.keywords.toLowerCase().includes(q)) && s.zone === z
+                ).length;
+                document.getElementById('count-' + z).textContent = c;
+            });
+
+            document.getElementById('countSectors').innerText = filtered.length;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-xs text-slate-500 space-y-1">
+                    <i class="fa-solid fa-circle-xmark text-2xl block mb-2 text-slate-600"></i>
+                    No se encontraron sectores coincidentes.
+                </div>`;
+                return;
+            }
+
+            // Group by zone
+            const zones = activeFilter === "ALL" ? ['CENTRO','ENACE','NORTE','SUR'] : [activeFilter];
+
+            zones.forEach(zone => {
+                const items = filtered.filter(s => s.zone === zone);
+                if (items.length === 0) return;
+
+                // Group header
+                const header = document.createElement('div');
+                header.className = `group-header flex items-center gap-2 px-2 py-1.5 mb-1 mt-1 rounded`;
+                header.innerHTML = `
+                    <span class="inline-block w-2 h-2 rounded-full dot-${zone}"></span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${zoneConfig[zone].label}</span>
+                    <span class="text-[10px] text-slate-600">(${items.length})</span>
+                `;
+                container.appendChild(header);
+
+                items.forEach(sector => {
+                    const isSelected = currentSector && currentSector.id === sector.id;
+                    const div = document.createElement('div');
+                    div.className = `p-3 rounded-lg cursor-pointer transition flex items-center justify-between group/item
+                        ${isSelected ? 'bg-blue-600/20 border border-blue-500/50 text-white' : 'hover:bg-slate-700/50 text-slate-300 border border-transparent'}`;
+                    div.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded bg-slate-900 border flex items-center justify-center text-xs font-bold flex-shrink-0
+                                ${isSelected ? 'text-blue-400 border-blue-500/50' : 'text-slate-400 border-slate-700'}">
+                                ${sector.id}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <h4 class="text-xs font-semibold leading-snug">${sector.name}</h4>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]">${sector.note}</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-600 group-hover/item:text-slate-300 transition flex-shrink-0"></i>
+                    `;
+                    div.onclick = () => selectSector(sector);
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        // ── Select sector ────────────────────────────────────────────
+        function selectSector(sector) {
+            currentSector = sector;
+            document.getElementById('welcomeState').classList.add('hidden');
+            document.getElementById('detailView').classList.remove('hidden');
+
+            document.getElementById('sectorTitle').innerText = sector.name;
+            document.getElementById('sectorTags').innerText = `Puntos Clave: ${sector.keywords.replace(/ /g, ' • ')}`;
+            document.getElementById('sectorImage').src = sector.image;
+            document.getElementById('sectorNote').innerHTML = `<strong class="text-white">Indicación Táctica:</strong> ${sector.note}`;
+
+            // Zone badge
+            const badge = document.getElementById('sectorZoneBadge');
+            badge.className = `badge-${sector.zone} text-[10px] px-2 py-0.5 rounded-full font-semibold`;
+            badge.textContent = zoneConfig[sector.zone].label.toUpperCase();
+
+            renderList(document.getElementById('searchInput').value);
+        }
+
+        // ── Fullscreen modal ─────────────────────────────────────────
+        function toggleFullscreen() {
+            if (!currentSector) return;
+            document.getElementById('modalImage').src = currentSector.image;
+            document.getElementById('fullscreenModal').classList.remove('hidden');
+        }
+
+        function closeFullscreen() {
+            document.getElementById('fullscreenModal').classList.add('hidden');
+        }
+
+        // Close modal on background click
+        document.getElementById('fullscreenModal').addEventListener('click', function(e) {
+            if (e.target === this) closeFullscreen();
+        });
+
+        // ── Search events ────────────────────────────────────────────
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            toggleClearBtn(e.target.value);
+            renderList(e.target.value);
+        });
+
+        // ── Contact modal ─────────────────────────────────────────
+        function openContact() {
+            document.getElementById('contactModal').classList.remove('hidden');
+        }
+        function closeContact() {
+            document.getElementById('contactModal').classList.add('hidden');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { closeFullscreen(); closeContact(); }
+            if (e.key === 'F1')    { e.preventDefault(); openContact(); }
+        });
+
+        // ── Initialize ───────────────────────────────────────────────
+        renderList();
+    </script>
+</body>
+</html>
