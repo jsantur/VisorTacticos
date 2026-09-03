@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://visor-tacticos.vercel.app/">
-    <img src="./public/img/visor-tactico.webp" alt="Visor Táctico de Seguridad Ciudadana" width="80%">
+    <img src="./banner-visorTactico.png" alt="Visor Táctico de Seguridad Ciudadana" width="80%">
   </a>
 </p>
 
